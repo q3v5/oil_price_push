@@ -193,12 +193,12 @@ def main():
     #push_success = push_to_wechat_via_pushplus(f"【内蒙古油价测试】{current_date}", oil_html)
     
     # 正式环境：按日期判断推送（注释测试代码后启用）
-    # if current_date != last_change_date:
-    #     print(f"【结束】今日({current_date})非调整日（最近调整日：{last_change_date}），无需推送")
-    #     return
-    # print("【推送】今日为调整日，执行推送...")
-    # push_title = f"【内蒙古油价调整通知】{current_date}"
-    # push_success = push_to_wechat_via_pushplus(push_title, oil_html)
+     if current_date != last_change_date:
+         print(f"【结束】今日({current_date})非调整日（最近调整日：{last_change_date}），无需推送")
+         return
+     print("【推送】今日为调整日，执行推送...")
+     push_title = f"【内蒙古油价调整通知】{current_date}"
+     push_success = push_to_wechat_via_pushplus(push_title, oil_html)
     
     print(f"【完成】推送{'成功' if push_success else '失败'}")
 

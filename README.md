@@ -34,7 +34,7 @@ pip install requests
 | 环境变量名        | 说明                                  | 获取方式                                  |
 |-------------------|---------------------------------------|-------------------------------------------|
 | `PUSHPLUS_TOKEN`  | PushPlus推送服务的Token（必填）       | 注册并登录 [PushPlus官网](https://www.pushplus.plus/) 获取 |
-| `TANSHU_API_KEY`  | 坦数数据API的密钥（必填）             | 注册并登录 [坦数数据平台](https://www.tanshuapi.com/)，申请"油价查询"API获取 |
+| `TANSHU_API_KEY`  | 油价API的密钥（必填）             | 注册并登录 [API官网](https://www.tanshuapi.com/)，申请"油价查询"API获取 |
 
 
 ## 🚀 使用方法

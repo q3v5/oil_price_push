@@ -140,8 +140,8 @@ def push_to_wechat_via_pushplus(title, content):
             "title": title,
             "content": content,
             "template": "html",
-            "channel": "wechat"
-            "topic": "1"
+            "channel": "wechat",
+            "topic": 1
         }
 
         print("【调试】PushPlus推送JSON参数：")

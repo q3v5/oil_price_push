@@ -45,11 +45,11 @@ pip install requests
    ```bash
    # Linux/Mac
    export PUSHPLUS_TOKEN="你的PushPlus Token"
-   export TANSHU_API_KEY="你的坦数API密钥"
+   export TANSHU_API_KEY="你的API密钥"
    
    # Windows (PowerShell)
    $env:PUSHPLUS_TOKEN="你的PushPlus Token"
-   $env:TANSHU_API_KEY="你的坦数API密钥"
+   $env:TANSHU_API_KEY="你的API密钥"
    ```
 
 2. 运行脚本（即刻获取油价）：
@@ -99,7 +99,7 @@ jobs:
 
 ## 🔍 脚本逻辑说明
 
-1. **油价获取**：`get_neimenggu_oil_price()` 函数调用坦数数据API，解析返回的油价信息，生成结构化数据和美观的HTML表格。
+1. **油价获取**：`get_neimenggu_oil_price()` 函数调用数据API，解析返回的油价信息，生成结构化数据和美观的HTML表格。
 2. **微信推送**：`push_to_wechat_via_pushplus()` 函数通过PushPlus API将HTML内容推送到你的微信，随时随地查看。
 3. **主逻辑**：`main()` 函数处理时区设置（默认中国上海时区，避免时差问题），判断是否为油价调整日（正式环境），并智能执行推送操作。
 

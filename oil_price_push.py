@@ -251,9 +251,20 @@ def push_to_wechat_via_pushplus(title, content):
         print(f"【错误】推送异常：{str(e)}")
         return False
 
+def escape_markdown_v2(content):
+    """
+    转义企业微信markdown_v2的特殊字符
+    需转义的字符：\ ` * _ [ ] ( ) ~ ` > # + - = | { } . !
+    """
+    escape_chars = r'\`*_\[\]()~`>#+-=|{}.!'
+    for char in escape_chars:
+        if char in content:
+            content = content.replace(char, f'\\{char}')
+    return content
+
 def push_to_wework_markdown(content):
     """
-    推送markdown内容到企业微信webhook
+    推送markdown_v2内容到企业微信webhook
     :param content: markdown格式的内容
     :return: 推送是否成功
     """
@@ -264,11 +275,14 @@ def push_to_wework_markdown(content):
         print("【错误】企业微信推送内容为空")
         return False
     
-    # 构建企业微信markdown请求体
+    # 转义markdown_v2特殊字符
+    escaped_content = escape_markdown_v2(content)
+    
+    # 构建企业微信markdown_v2请求体
     request_data = {
         "msgtype": "markdown_v2",
-        "markdown": {
-            "content": content
+        "markdown_v2": {
+            "content": escaped_content
         }
     }
     

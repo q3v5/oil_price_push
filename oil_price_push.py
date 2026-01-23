@@ -6,7 +6,7 @@ from datetime import datetime
 # -------------------------- 从环境变量读取配置 --------------------------
 PUSHPLUS_TOKEN = os.getenv("PUSHPLUS_TOKEN")  # PushPlus令牌
 TANSHU_API_KEY = os.getenv("TANSHU_API_KEY")  # 天极API秘钥
-QY_WECHAT_WEBHOOK_KEY = os.getenv("QY_WECHAT_WEBHOOK_KEY")  # 企业微信Webhook Key（可选）
+QY_WECHAT_WEBHOOK_KEY = os.getenv("QY")  # 企业微信Webhook Key（可选）
 # ------------------------------------------------------------------------------
 
 def calculate_change_percent(change, previous_price):

@@ -237,8 +237,8 @@ def main():
     print(json.dumps(oil_json, ensure_ascii=False, indent=2))
 
     # 强制推送（测试用）| 正式环境注释以下2行，启用日期判断
-    print("【测试】强制推送（GitHub Actions测试）...")
-    push_success = push_to_wechat_via_pushplus(f"【内蒙古油价测试】{current_date}", oil_html)
+    #print("【测试】强制推送（GitHub Actions测试）...")
+    #push_success = push_to_wechat_via_pushplus(f"【内蒙古油价测试】{current_date}", oil_html)
     
     # 正式环境：按日期判断推送（注释测试代码后启用）
     if current_date != last_change_date:

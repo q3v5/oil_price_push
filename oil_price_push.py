@@ -242,7 +242,7 @@ def push_to_qy_wechat(title, markdown_content):
         print("【错误】企业微信推送内容为空（必填项）")
         return False
 
-    qy_wechat_webhook_url = f"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={QY_WECHAT_WEBHOOK_KEY}"
+    qy_wechat_webhook_url = f"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=750d5858-0553-4ac5-8a4c-522103205c0b"
     
     push_data = {
         "msgtype": "markdown",

@@ -6,6 +6,8 @@ from datetime import datetime
 # -------------------------- 从环境变量读取配置（关键适配GitHub Actions） --------------------------
 PUSHPLUS_TOKEN = os.getenv("PUSHPLUS_TOKEN")  # 从GitHub Secrets读取
 TANSHU_API_KEY = os.getenv("TANSHU_API_KEY")  # 保留原变量名，实际配置天极API秘钥
+# 企业微信webhook地址
+QY_WECHAT_WEBHOOK = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=750d5858-0553-4ac5-8a4c-522103205c0b"
 # ------------------------------------------------------------------------------
 
 def calculate_change_percent(change, previous_price):
@@ -165,12 +167,24 @@ def get_neimenggu_oil_price():
 </table>
 <p style="margin-top: 10px; font-weight: bold;">下一次油价调整时间：{oil_json['next_change_date']}</p>
 """
-        return oil_json, table_html, oil_json["last_change_date"], oil_json["next_change_date"], True
+        # 生成企业微信markdown_v2格式内容
+        markdown_content = f"""# 内蒙古油价更新信息
+## 最近调整日期：{oil_json['last_change_date'] or '暂无数据'}
+
+| 油价标号 | 当前油价（元/升） | 上次油价（元/升） | 涨跌（元/升） | 涨跌率 |
+| :------- | :--------------: | :--------------: | :-----------: | :----: |
+| 92号汽油 | {oil_json['oil_detail']['92号汽油']['current_price']} | {oil_json['oil_detail']['92号汽油']['last_price']} | {oil_json['oil_detail']['92号汽油']['change']} | {oil_json['oil_detail']['92号汽油']['change_percent']} |
+| 95号汽油 | {oil_json['oil_detail']['95号汽油']['current_price']} | {oil_json['oil_detail']['95号汽油']['last_price']} | {oil_json['oil_detail']['95号汽油']['change']} | {oil_json['oil_detail']['95号汽油']['change_percent']} |
+| 98号汽油 | {oil_json['oil_detail']['98号汽油']['current_price']} | {oil_json['oil_detail']['98号汽油']['last_price']} | {oil_json['oil_detail']['98号汽油']['change']} | {oil_json['oil_detail']['98号汽油']['change_percent']} |
+
+**下一次油价调整时间：{oil_json['next_change_date']}**
+"""
+        return oil_json, table_html, oil_json["last_change_date"], oil_json["next_change_date"], True, markdown_content
 
     except Exception as e:
         error_info = f"获取油价失败：{str(e)}"
         print(error_info)
-        return {}, error_info, "", "", False
+        return {}, error_info, "", "", False, ""
 
 def push_to_wechat_via_pushplus(title, content):
     """推送函数（逻辑完全不变）"""
@@ -207,28 +221,74 @@ def push_to_wechat_via_pushplus(title, content):
         push_result = response.json()
 
         if push_result.get("code") == 200:
-            print(f"【成功】推送完成，返回：{json.dumps(push_result, ensure_ascii=False, indent=2)}")
+            print(f"【成功】PushPlus推送完成，返回：{json.dumps(push_result, ensure_ascii=False, indent=2)}")
             return True
         else:
-            print(f"【失败】推送失败，返回：{json.dumps(push_result, ensure_ascii=False, indent=2)}")
+            print(f"【失败】PushPlus推送失败，返回：{json.dumps(push_result, ensure_ascii=False, indent=2)}")
             return False
 
     except requests.exceptions.HTTPError as e:
-        print(f"【错误】HTTP异常：{e.response.status_code} - {e.response.text}")
+        print(f"【错误】PushPlus HTTP异常：{e.response.status_code} - {e.response.text}")
         return False
     except Exception as e:
-        print(f"【错误】推送异常：{str(e)}")
+        print(f"【错误】PushPlus推送异常：{str(e)}")
+        return False
+
+def push_to_qy_wechat(title, markdown_content):
+    """企业微信推送函数（markdown_v2格式）"""
+    if not QY_WECHAT_WEBHOOK:
+        print("【错误】企业微信Webhook地址为空")
+        return False
+    if not markdown_content:
+        print("【错误】企业微信推送内容为空")
+        return False
+
+    try:
+        # 企业微信markdown_v2消息体
+        push_data = {
+            "msgtype": "markdown_v2",
+            "markdown_v2": {
+                "content": markdown_content
+            }
+        }
+
+        print("【调试】企业微信推送参数：")
+        print(json.dumps(push_data, ensure_ascii=False, indent=2))
+
+        response = requests.post(
+            url=QY_WECHAT_WEBHOOK,
+            data=json.dumps(push_data, ensure_ascii=False),
+            headers={"Content-Type": "application/json"},
+            timeout=15,
+            verify=False
+        )
+
+        response.raise_for_status()
+        push_result = response.json()
+
+        if push_result.get("errcode") == 0:
+            print(f"【成功】企业微信推送完成，返回：{json.dumps(push_result, ensure_ascii=False, indent=2)}")
+            return True
+        else:
+            print(f"【失败】企业微信推送失败，返回：{json.dumps(push_result, ensure_ascii=False, indent=2)}")
+            return False
+
+    except requests.exceptions.HTTPError as e:
+        print(f"【错误】企业微信HTTP异常：{e.response.status_code} - {e.response.text}")
+        return False
+    except Exception as e:
+        print(f"【错误】企业微信推送异常：{str(e)}")
         return False
 
 def main():
-    """主逻辑（完全不变）"""
+    """主逻辑（新增企业微信推送）"""
     # 设置时区为中国上海（解决GitHub Actions默认UTC时区导致的日期错误）
     os.environ["TZ"] = "Asia/Shanghai"
     current_date = datetime.now().strftime("%Y-%m-%d")
     print(f"【运行】当前日期（中国时区）：{current_date}")
 
-    # 获取油价数据
-    oil_json, oil_html, last_change_date, next_change_date, is_success = get_neimenggu_oil_price()
+    # 获取油价数据（新增markdown_content返回值）
+    oil_json, oil_html, last_change_date, next_change_date, is_success, markdown_content = get_neimenggu_oil_price()
     if not is_success:
         print(f"【终止】{oil_html}")
         return
@@ -236,19 +296,26 @@ def main():
     print("【调试】油价JSON数据：")
     print(json.dumps(oil_json, ensure_ascii=False, indent=2))
 
-    # 强制推送（测试用）| 正式环境注释以下2行，启用日期判断
-    #print("【测试】强制推送（GitHub Actions测试）...")
-    #push_success = push_to_wechat_via_pushplus(f"【内蒙古油价测试】{current_date}", oil_html)
+    # 强制推送（测试用）| 正式环境注释以下行，启用日期判断
+    print("【测试】强制推送（GitHub Actions测试）...")
+    #push_plus_success = push_to_wechat_via_pushplus(f"【内蒙古油价测试】{current_date}", oil_html)
+    qy_wechat_success = push_to_qy_wechat(f"【内蒙古油价测试】{current_date}", markdown_content)
     
     # 正式环境：按日期判断推送（注释测试代码后启用）
     if current_date != last_change_date:
         print(f"【结束】今日({current_date})非调整日（最近调整日：{last_change_date}），无需推送")
         return
-    print("【推送】今日为调整日，执行推送...")
-    push_title = f"【内蒙古油价调整通知】{current_date}"
-    push_success = push_to_wechat_via_pushplus(push_title, oil_html)
     
-    print(f"【完成】推送{'成功' if push_success else '失败'}")
+    print("【推送】今日为调整日，执行推送...")
+    # PushPlus推送
+    push_plus_title = f"【内蒙古油价调整通知】{current_date}"
+    push_plus_success = push_to_wechat_via_pushplus(push_plus_title, oil_html)
+    
+    # 企业微信推送
+    qy_wechat_title = f"【内蒙古油价调整通知】{current_date}"
+    qy_wechat_success = push_to_qy_wechat(qy_wechat_title, markdown_content)
+    
+    print(f"【完成】PushPlus推送{'成功' if push_plus_success else '失败'}，企业微信推送{'成功' if qy_wechat_success else '失败'}")
 
 if __name__ == "__main__":
     main()

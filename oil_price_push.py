@@ -165,37 +165,36 @@ def get_neimenggu_oil_price():
 </table>
 <p style="margin-top: 10px; font-weight: bold;">下一次油价调整时间：{oil_json['next_change_date']}</p>
 """
-        # ========== 核心修改：适配企业微信Markdown规范 ==========
-        # 1. 字体颜色标签改用双引号（企业微信强制要求）
-        # 2. 表格分隔线补充足够的横线，确保列数匹配
-        # 3. 空值兜底，避免表格单元格为空导致格式错乱
-        # 4. 换行符优化，增加<br>确保换行生效
-        markdown_content = f"""### 内蒙古油价更新信息<br>
-**最近调整日期**：{oil_json['last_change_date'] or '暂无数据'}<br><br>
+        # 修复f-string反斜杠问题：将转义双引号改为单引号（HTML支持单引号）
+        # 生成企业微信Markdown内容（适配企业微信markdown语法）
+        markdown_content = f"""### 内蒙古油价更新信息
+**最近调整日期**：{oil_json['last_change_date'] or '暂无数据'}
+
 | 油价标号 | 当前油价（元/升） | 上次油价（元/升） | 涨跌（元/升） | 涨跌率 |
-| :------- | :--------------- | :--------------- | :----------- | :----- |
-| 92号汽油 | {oil_json['oil_detail']['92号汽油']['current_price'] or '暂无数据'} | {oil_json['oil_detail']['92号汽油']['last_price'] or '暂无数据'} | {
-    f"<font color=\"green\">{oil_json['oil_detail']['92号汽油']['change']}</font>" 
+|----------|------------------|------------------|--------------|--------|
+| 92号汽油 | {oil_json['oil_detail']['92号汽油']['current_price']} | {oil_json['oil_detail']['92号汽油']['last_price']} | {
+    f"<font color='green'>{oil_json['oil_detail']['92号汽油']['change']}</font>" 
     if str(oil_json['oil_detail']['92号汽油']['change']).startswith("-") 
-    else f"<font color=\"red\">{oil_json['oil_detail']['92号汽油']['change']}</font>" 
+    else f"<font color='red'>{oil_json['oil_detail']['92号汽油']['change']}</font>" 
     if str(oil_json['oil_detail']['92号汽油']['change']).startswith("+") 
-    else (oil_json['oil_detail']['92号汽油']['change'] or '暂无数据')
-} | {oil_json['oil_detail']['92号汽油']['change_percent'] or '暂无数据'} |
-| 95号汽油 | {oil_json['oil_detail']['95号汽油']['current_price'] or '暂无数据'} | {oil_json['oil_detail']['95号汽油']['last_price'] or '暂无数据'} | {
-    f"<font color=\"green\">{oil_json['oil_detail']['95号汽油']['change']}</font>" 
+    else oil_json['oil_detail']['92号汽油']['change']
+} | {oil_json['oil_detail']['92号汽油']['change_percent']} |
+| 95号汽油 | {oil_json['oil_detail']['95号汽油']['current_price']} | {oil_json['oil_detail']['95号汽油']['last_price']} | {
+    f"<font color='green'>{oil_json['oil_detail']['95号汽油']['change']}</font>" 
     if str(oil_json['oil_detail']['95号汽油']['change']).startswith("-") 
-    else f"<font color=\"red\">{oil_json['oil_detail']['95号汽油']['change']}</font>" 
+    else f"<font color='red'>{oil_json['oil_detail']['95号汽油']['change']}</font>" 
     if str(oil_json['oil_detail']['95号汽油']['change']).startswith("+") 
-    else (oil_json['oil_detail']['95号汽油']['change'] or '暂无数据')
-} | {oil_json['oil_detail']['95号汽油']['change_percent'] or '暂无数据'} |
-| 98号汽油 | {oil_json['oil_detail']['98号汽油']['current_price'] or '暂无数据'} | {oil_json['oil_detail']['98号汽油']['last_price'] or '暂无数据'} | {
-    f"<font color=\"green\">{oil_json['oil_detail']['98号汽油']['change']}</font>" 
+    else oil_json['oil_detail']['95号汽油']['change']
+} | {oil_json['oil_detail']['95号汽油']['change_percent']} |
+| 98号汽油 | {oil_json['oil_detail']['98号汽油']['current_price']} | {oil_json['oil_detail']['98号汽油']['last_price']} | {
+    f"<font color='green'>{oil_json['oil_detail']['98号汽油']['change']}</font>" 
     if str(oil_json['oil_detail']['98号汽油']['change']).startswith("-") 
-    else f"<font color=\"red\">{oil_json['oil_detail']['98号汽油']['change']}</font>" 
+    else f"<font color='red'>{oil_json['oil_detail']['98号汽油']['change']}</font>" 
     if str(oil_json['oil_detail']['98号汽油']['change']).startswith("+") 
-    else (oil_json['oil_detail']['98号汽油']['change'] or '暂无数据')
-} | {oil_json['oil_detail']['98号汽油']['change_percent'] or '暂无数据'} |<br>
-**下一次油价调整时间**：{oil_json['next_change_date'] or '暂无数据'}
+    else oil_json['oil_detail']['98号汽油']['change']
+} | {oil_json['oil_detail']['98号汽油']['change_percent']} |
+
+**下一次油价调整时间**：{oil_json['next_change_date']}
 """
         return oil_json, table_html, markdown_content, oil_json["last_change_date"], oil_json["next_change_date"], True
 
@@ -267,18 +266,17 @@ def push_to_wework_markdown(content):
     
     # 构建企业微信markdown请求体
     request_data = {
-        "msgtype": "markdown",
+        "msgtype": "markdown_v2",
         "markdown": {
             "content": content
         }
     }
     
     try:
-        # ========== 新增：确保JSON序列化时不转义中文，且处理特殊字符 ==========
         response = requests.post(
             url=wework_webhook_url,
-            data=json.dumps(request_data, ensure_ascii=False).encode('utf-8'),  # 显式编码为UTF-8
-            headers={"Content-Type": "application/json; charset=utf-8"},     # 指定字符集
+            data=json.dumps(request_data, ensure_ascii=False),
+            headers={"Content-Type": "application/json"},
             timeout=15,
             verify=False
         )
@@ -333,8 +331,6 @@ def main():
     print("【推送】执行企业微信Markdown推送...")
     wework_push_success = push_to_wework_markdown(oil_markdown)
     
-    # 修复：push_success未定义的问题（测试环境注释后需处理）
-    push_success = False  # 临时兜底，正式环境启用PushPlus后删除
     print(f"【完成】PushPlus推送{'成功' if push_success else '失败'}，企业微信推送{'成功' if wework_push_success else '失败'}")
 
 if __name__ == "__main__":

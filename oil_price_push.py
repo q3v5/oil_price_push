@@ -6,7 +6,6 @@ from datetime import datetime
 # -------------------------- 从环境变量读取配置（关键适配GitHub Actions） --------------------------
 PUSHPLUS_TOKEN = os.getenv("PUSHPLUS_TOKEN")  # 从GitHub Secrets读取
 TANSHU_API_KEY = os.getenv("TANSHU_API_KEY")  # 保留原变量名，实际配置天极API秘钥
-# 移除环境变量读取WEWORK_WEBHOOK_KEY的代码，直接在地址中写入key
 # ------------------------------------------------------------------------------
 
 def calculate_change_percent(change, previous_price):
@@ -166,6 +165,7 @@ def get_neimenggu_oil_price():
 </table>
 <p style="margin-top: 10px; font-weight: bold;">下一次油价调整时间：{oil_json['next_change_date']}</p>
 """
+        # 修复f-string反斜杠问题：将转义双引号改为单引号（HTML支持单引号）
         # 生成企业微信Markdown内容（适配企业微信markdown语法）
         markdown_content = f"""### 内蒙古油价更新信息
 **最近调整日期**：{oil_json['last_change_date'] or '暂无数据'}
@@ -173,23 +173,23 @@ def get_neimenggu_oil_price():
 | 油价标号 | 当前油价（元/升） | 上次油价（元/升） | 涨跌（元/升） | 涨跌率 |
 |----------|------------------|------------------|--------------|--------|
 | 92号汽油 | {oil_json['oil_detail']['92号汽油']['current_price']} | {oil_json['oil_detail']['92号汽油']['last_price']} | {
-    f"<font color=\"green\">{oil_json['oil_detail']['92号汽油']['change']}</font>" 
+    f"<font color='green'>{oil_json['oil_detail']['92号汽油']['change']}</font>" 
     if str(oil_json['oil_detail']['92号汽油']['change']).startswith("-") 
-    else f"<font color=\"red\">{oil_json['oil_detail']['92号汽油']['change']}</font>" 
+    else f"<font color='red'>{oil_json['oil_detail']['92号汽油']['change']}</font>" 
     if str(oil_json['oil_detail']['92号汽油']['change']).startswith("+") 
     else oil_json['oil_detail']['92号汽油']['change']
 } | {oil_json['oil_detail']['92号汽油']['change_percent']} |
 | 95号汽油 | {oil_json['oil_detail']['95号汽油']['current_price']} | {oil_json['oil_detail']['95号汽油']['last_price']} | {
-    f"<font color=\"green\">{oil_json['oil_detail']['95号汽油']['change']}</font>" 
+    f"<font color='green'>{oil_json['oil_detail']['95号汽油']['change']}</font>" 
     if str(oil_json['oil_detail']['95号汽油']['change']).startswith("-") 
-    else f"<font color=\"red\">{oil_json['oil_detail']['95号汽油']['change']}</font>" 
+    else f"<font color='red'>{oil_json['oil_detail']['95号汽油']['change']}</font>" 
     if str(oil_json['oil_detail']['95号汽油']['change']).startswith("+") 
     else oil_json['oil_detail']['95号汽油']['change']
 } | {oil_json['oil_detail']['95号汽油']['change_percent']} |
 | 98号汽油 | {oil_json['oil_detail']['98号汽油']['current_price']} | {oil_json['oil_detail']['98号汽油']['last_price']} | {
-    f"<font color=\"green\">{oil_json['oil_detail']['98号汽油']['change']}</font>" 
+    f"<font color='green'>{oil_json['oil_detail']['98号汽油']['change']}</font>" 
     if str(oil_json['oil_detail']['98号汽油']['change']).startswith("-") 
-    else f"<font color=\"red\">{oil_json['oil_detail']['98号汽油']['change']}</font>" 
+    else f"<font color='red'>{oil_json['oil_detail']['98号汽油']['change']}</font>" 
     if str(oil_json['oil_detail']['98号汽油']['change']).startswith("+") 
     else oil_json['oil_detail']['98号汽油']['change']
 } | {oil_json['oil_detail']['98号汽油']['change_percent']} |
@@ -313,9 +313,9 @@ def main():
     print(json.dumps(oil_json, ensure_ascii=False, indent=2))
 
     # 强制推送（测试用）| 正式环境注释以下2行，启用日期判断
-    print("【测试】强制推送（GitHub Actions测试）...")
+    #print("【测试】强制推送（GitHub Actions测试）...")
     #push_success = push_to_wechat_via_pushplus(f"【内蒙古油价测试】{current_date}", oil_html)
-    wework_push_success = push_to_wework_markdown(oil_markdown)
+    #wework_push_success = push_to_wework_markdown(oil_markdown)
     
     # 正式环境：按日期判断推送（注释测试代码后启用）
     if current_date != last_change_date:

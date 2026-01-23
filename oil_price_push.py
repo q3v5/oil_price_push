@@ -318,9 +318,9 @@ def main():
     #wework_push_success = push_to_wework_markdown(oil_markdown)
     
     # 正式环境：按日期判断推送（注释测试代码后启用）
-    if current_date != last_change_date:
-        print(f"【结束】今日({current_date})非调整日（最近调整日：{last_change_date}），无需推送")
-        return
+    #if current_date != last_change_date:
+     #   print(f"【结束】今日({current_date})非调整日（最近调整日：{last_change_date}），无需推送")
+      #  return
     
     # 执行PushPlus推送
     print("【推送】今日为调整日，执行PushPlus推送...")

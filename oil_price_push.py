@@ -171,11 +171,11 @@ def get_neimenggu_oil_price():
         markdown_content = f"""# 内蒙古油价更新信息
 ## 最近调整日期：{oil_json['last_change_date'] or '暂无数据'}
 
-| 油价标号 | 当前油价（元/升） | 上次油价（元/升） | 涨跌（元/升） | 涨跌率 |
+| 标号 | 当前油价（元/升） | 上次油价（元/升） | 涨跌（元/升） | 涨跌率 |
 | :------- | :--------------: | :--------------: | :-----------: | :----: |
-| 92号汽油 | {oil_json['oil_detail']['92号汽油']['current_price']} | {oil_json['oil_detail']['92号汽油']['last_price']} | {oil_json['oil_detail']['92号汽油']['change']} | {oil_json['oil_detail']['92号汽油']['change_percent']} |
-| 95号汽油 | {oil_json['oil_detail']['95号汽油']['current_price']} | {oil_json['oil_detail']['95号汽油']['last_price']} | {oil_json['oil_detail']['95号汽油']['change']} | {oil_json['oil_detail']['95号汽油']['change_percent']} |
-| 98号汽油 | {oil_json['oil_detail']['98号汽油']['current_price']} | {oil_json['oil_detail']['98号汽油']['last_price']} | {oil_json['oil_detail']['98号汽油']['change']} | {oil_json['oil_detail']['98号汽油']['change_percent']} |
+| 92号 | {oil_json['oil_detail']['92号汽油']['current_price']} | {oil_json['oil_detail']['92号汽油']['last_price']} | {oil_json['oil_detail']['92号汽油']['change']} | {oil_json['oil_detail']['92号汽油']['change_percent']} |
+| 95号 | {oil_json['oil_detail']['95号汽油']['current_price']} | {oil_json['oil_detail']['95号汽油']['last_price']} | {oil_json['oil_detail']['95号汽油']['change']} | {oil_json['oil_detail']['95号汽油']['change_percent']} |
+| 98号 | {oil_json['oil_detail']['98号汽油']['current_price']} | {oil_json['oil_detail']['98号汽油']['last_price']} | {oil_json['oil_detail']['98号汽油']['change']} | {oil_json['oil_detail']['98号汽油']['change_percent']} |
 
 **下一次油价调整时间：{oil_json['next_change_date']}**
 """

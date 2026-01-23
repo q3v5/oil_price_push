@@ -6,6 +6,7 @@ from datetime import datetime
 # -------------------------- 从环境变量读取配置（关键适配GitHub Actions） --------------------------
 PUSHPLUS_TOKEN = os.getenv("PUSHPLUS_TOKEN")  # 从GitHub Secrets读取
 TANSHU_API_KEY = os.getenv("TANSHU_API_KEY")  # 保留原变量名，实际配置天极API秘钥
+QY_WECHAT_WEBHOOK_KEY = os.getenv("QY_WECHAT_WEBHOOK_KEY")  # 企业微信Webhook Key（GitHub Secrets配置）
 # ------------------------------------------------------------------------------
 
 def calculate_change_percent(change, previous_price):
@@ -58,7 +59,7 @@ def get_neimenggu_oil_price():
         # 新API返回码判断（200为成功，替换原code=1）
         if not isinstance(api_result, dict) or api_result.get("code") != 200:
             error_msg = f"油价接口返回失败：{api_result.get('msg', '未知错误')}" if api_result else "油价接口返回空"
-            return {}, error_msg, "", "", False
+            return {}, error_msg, "", "", "", False
 
         # 新API数据主体从result获取（替换原data）
         oil_raw_data = api_result.get("result", {})
@@ -108,10 +109,10 @@ def get_neimenggu_oil_price():
         if raw_last_date and len(raw_last_date) == 8 and raw_last_date.isdigit():
             oil_json["last_change_date"] = f"{raw_last_date[:4]}-{raw_last_date[4:6]}-{raw_last_date[6:8]}"
         raw_next_date = oil_raw_data.get("next_adjustment", "")
-        if raw_next_date and len(raw_next_date) == 8 and raw_next_date.isdigit():
+        if raw_next_date and len(raw_last_date) == 8 and raw_next_date.isdigit():
             oil_json["next_change_date"] = f"{raw_next_date[:4]}-{raw_next_date[4:6]}-{raw_next_date[6:8]}"
 
-        # 生成HTML表格（格式不变，仅适配新数据）
+        # 生成HTML表格（原格式保留）
         table_html = f"""
 <h3>内蒙古油价更新信息</h3>
 <p>最近调整日期：{oil_json['last_change_date'] or '暂无数据'}</p>
@@ -165,12 +166,27 @@ def get_neimenggu_oil_price():
 </table>
 <p style="margin-top: 10px; font-weight: bold;">下一次油价调整时间：{oil_json['next_change_date']}</p>
 """
-        return oil_json, table_html, oil_json["last_change_date"], oil_json["next_change_date"], True
+        
+        # 生成企业微信Markdown格式内容（适配企业微信机器人语法）
+        markdown_content = f"""
+### 内蒙古油价更新信息
+> 最近调整日期：{oil_json['last_change_date'] or '暂无数据'}
+
+| 油价标号 | 当前油价（元/升） | 上次油价（元/升） | 涨跌（元/升） | 涨跌率 |
+| ---- | ---- | ---- | ---- | ---- |
+| 92号汽油 | {oil_json['oil_detail']['92号汽油']['current_price']} | {oil_json['oil_detail']['92号汽油']['last_price']} | {oil_json['oil_detail']['92号汽油']['change']} | {oil_json['oil_detail']['92号汽油']['change_percent']} |
+| 95号汽油 | {oil_json['oil_detail']['95号汽油']['current_price']} | {oil_json['oil_detail']['95号汽油']['last_price']} | {oil_json['oil_detail']['95号汽油']['change']} | {oil_json['oil_detail']['95号汽油']['change_percent']} |
+| 98号汽油 | {oil_json['oil_detail']['98号汽油']['current_price']} | {oil_json['oil_detail']['98号汽油']['last_price']} | {oil_json['oil_detail']['98号汽油']['change']} | {oil_json['oil_detail']['98号汽油']['change_percent']} |
+
+**下一次油价调整时间：{oil_json['next_change_date']}**
+"""
+
+        return oil_json, table_html, markdown_content, oil_json["last_change_date"], oil_json["next_change_date"], True
 
     except Exception as e:
         error_info = f"获取油价失败：{str(e)}"
         print(error_info)
-        return {}, error_info, "", "", False
+        return {}, error_info, "", "", "", False
 
 def push_to_wechat_via_pushplus(title, content):
     """推送函数（逻辑完全不变）"""
@@ -207,10 +223,10 @@ def push_to_wechat_via_pushplus(title, content):
         push_result = response.json()
 
         if push_result.get("code") == 200:
-            print(f"【成功】推送完成，返回：{json.dumps(push_result, ensure_ascii=False, indent=2)}")
+            print(f"【成功】PushPlus推送完成，返回：{json.dumps(push_result, ensure_ascii=False, indent=2)}")
             return True
         else:
-            print(f"【失败】推送失败，返回：{json.dumps(push_result, ensure_ascii=False, indent=2)}")
+            print(f"【失败】PushPlus推送失败，返回：{json.dumps(push_result, ensure_ascii=False, indent=2)}")
             return False
 
     except requests.exceptions.HTTPError as e:
@@ -220,15 +236,69 @@ def push_to_wechat_via_pushplus(title, content):
         print(f"【错误】推送异常：{str(e)}")
         return False
 
+def push_to_qy_wechat(title, markdown_content):
+    """
+    向企业微信机器人推送Markdown格式消息
+    :param title: 推送标题
+    :param markdown_content: Markdown格式的内容
+    :return: 推送是否成功
+    """
+    if not QY_WECHAT_WEBHOOK_KEY:
+        print("【错误】企业微信Webhook Key为空（必填项）")
+        return False
+    if not markdown_content:
+        print("【错误】企业微信推送内容为空（必填项）")
+        return False
+
+    # 拼接企业微信Webhook完整地址
+    qy_wechat_webhook_url = f"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={QY_WECHAT_WEBHOOK_KEY}"
+    
+    # 企业微信Markdown消息体格式
+    push_data = {
+        "msgtype": "markdown",
+        "markdown": {
+            "content": f"{title}\n{markdown_content}"
+        }
+    }
+
+    try:
+        print("【调试】企业微信推送参数：")
+        print(json.dumps(push_data, ensure_ascii=False, indent=2))
+
+        response = requests.post(
+            url=qy_wechat_webhook_url,
+            data=json.dumps(push_data, ensure_ascii=False),
+            headers={"Content-Type": "application/json"},
+            timeout=15,
+            verify=False
+        )
+
+        response.raise_for_status()
+        push_result = response.json()
+
+        if push_result.get("errcode") == 0:
+            print(f"【成功】企业微信推送完成，返回：{json.dumps(push_result, ensure_ascii=False, indent=2)}")
+            return True
+        else:
+            print(f"【失败】企业微信推送失败，返回：{json.dumps(push_result, ensure_ascii=False, indent=2)}")
+            return False
+
+    except requests.exceptions.HTTPError as e:
+        print(f"【错误】企业微信推送HTTP异常：{e.response.status_code} - {e.response.text}")
+        return False
+    except Exception as e:
+        print(f"【错误】企业微信推送异常：{str(e)}")
+        return False
+
 def main():
-    """主逻辑（完全不变）"""
+    """主逻辑（新增企业微信推送调用）"""
     # 设置时区为中国上海（解决GitHub Actions默认UTC时区导致的日期错误）
     os.environ["TZ"] = "Asia/Shanghai"
     current_date = datetime.now().strftime("%Y-%m-%d")
     print(f"【运行】当前日期（中国时区）：{current_date}")
 
-    # 获取油价数据
-    oil_json, oil_html, last_change_date, next_change_date, is_success = get_neimenggu_oil_price()
+    # 获取油价数据（新增markdown内容返回值）
+    oil_json, oil_html, oil_markdown, last_change_date, next_change_date, is_success = get_neimenggu_oil_price()
     if not is_success:
         print(f"【终止】{oil_html}")
         return
@@ -236,9 +306,10 @@ def main():
     print("【调试】油价JSON数据：")
     print(json.dumps(oil_json, ensure_ascii=False, indent=2))
 
-    # 强制推送（测试用）| 正式环境注释以下2行，启用日期判断
+    # 强制推送（测试用）| 正式环境注释以下3行，启用日期判断
     #print("【测试】强制推送（GitHub Actions测试）...")
-    #push_success = push_to_wechat_via_pushplus(f"【内蒙古油价测试】{current_date}", oil_html)
+    #push_success_pushplus = push_to_wechat_via_pushplus(f"【内蒙古油价测试】{current_date}", oil_html)
+    #push_success_qywechat = push_to_qy_wechat(f"【内蒙古油价测试】{current_date}", oil_markdown)
     
     # 正式环境：按日期判断推送（注释测试代码后启用）
     if current_date != last_change_date:
@@ -246,9 +317,12 @@ def main():
         return
     print("【推送】今日为调整日，执行推送...")
     push_title = f"【内蒙古油价调整通知】{current_date}"
-    push_success = push_to_wechat_via_pushplus(push_title, oil_html)
+    # PushPlus推送（原逻辑保留）
+    push_success_pushplus = push_to_wechat_via_pushplus(push_title, oil_html)
+    # 企业微信推送（新增）
+    push_success_qywechat = push_to_qy_wechat(push_title, oil_markdown)
     
-    print(f"【完成】推送{'成功' if push_success else '失败'}")
+    print(f"【完成】PushPlus推送{'成功' if push_success_pushplus else '失败'}，企业微信推送{'成功' if push_success_qywechat else '失败'}")
 
 if __name__ == "__main__":
     main()

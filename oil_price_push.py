@@ -5,17 +5,47 @@ from datetime import datetime
 
 # -------------------------- 从环境变量读取配置（关键适配GitHub Actions） --------------------------
 PUSHPLUS_TOKEN = os.getenv("PUSHPLUS_TOKEN")  # 从GitHub Secrets读取
-TANSHU_API_KEY = os.getenv("TANSHU_API_KEY")  # 从GitHub Secrets读取
+TANSHU_API_KEY = os.getenv("TANSHU_API_KEY")  # 保留原变量名，实际配置天极API秘钥
 # ------------------------------------------------------------------------------
 
-def get_neimenggu_oil_price():
-    """获取油价数据（逻辑不变，仅配置项来源修改）"""
+def calculate_change_percent(change, previous_price):
+    """
+    计算油价涨跌率（新API无该字段，需自行计算）
+    :param change: 涨跌金额（字符串/数字）
+    :param previous_price: 上次油价（字符串/数字）
+    :return: 涨跌率（保留两位小数）或"暂无数据"
+    """
     try:
-        api_url = "https://api.tanshuapi.com/api/youjia/v1/trend"
+        # 空值/非数字/0值处理
+        if not change or change.strip() == "" or change == "0.00":
+            return "暂无数据"
+        if not previous_price or previous_price.strip() == "" or previous_price == "0.00":
+            return "暂无数据"
+        
+        # 类型转换
+        change_float = float(change)
+        previous_float = float(previous_price)
+        
+        # 避免除零错误
+        if previous_float == 0:
+            return "暂无数据"
+        
+        # 计算涨跌率（保留两位小数，带百分号）
+        percent = (change_float / previous_float) * 100
+        return f"{percent:.2f}%"
+    except (ValueError, TypeError):
+        return "暂无数据"
+
+def get_neimenggu_oil_price():
+    """获取油价数据（适配新的天极API，保留原变量名）"""
+    try:
+        # 新API地址和参数（保留原TANSHU_API_KEY变量名）
+        api_url = "https://apis.tianapi.com/oilprice/market"
         request_params = {
-            "key": TANSHU_API_KEY,
-            "province": "内蒙古"
+            "key": TANSHU_API_KEY,  # 仍用原变量名，配置新秘钥
+            "prov": "内蒙古"        # 新API参数名改为prov
         }
+        
         response = requests.get(
             url=api_url,
             params=request_params,
@@ -25,46 +55,63 @@ def get_neimenggu_oil_price():
         response.raise_for_status()
         api_result = response.json()
 
-        if not isinstance(api_result, dict) or api_result.get("code") != 1:
+        # 新API返回码判断（200为成功，替换原code=1）
+        if not isinstance(api_result, dict) or api_result.get("code") != 200:
             error_msg = f"油价接口返回失败：{api_result.get('msg', '未知错误')}" if api_result else "油价接口返回空"
             return {}, error_msg, "", "", False
 
-        oil_raw_data = api_result.get("data", {})
+        # 新API数据主体从result获取（替换原data）
+        oil_raw_data = api_result.get("result", {})
         oil_json = {
-            "province": oil_raw_data.get("province", "内蒙古"),
+            "province": oil_raw_data.get("prov", "内蒙古"),
             "last_change_date": "",
             "next_change_date": "暂无数据",
             "oil_detail": {
                 "92号汽油": {
-                    "current_price": oil_raw_data.get("92h", {}).get("price", "暂无数据"),
-                    "last_price": oil_raw_data.get("92h", {}).get("change_before_price", "暂无数据"),
-                    "change": oil_raw_data.get("92h", {}).get("change", "暂无数据"),
-                    "change_percent": oil_raw_data.get("92h", {}).get("change_percent", "暂无数据")
+                    "current_price": oil_raw_data.get("p92", {}).get("price", "暂无数据"),  # 新字段p92
+                    "last_price": oil_raw_data.get("p92", {}).get("previous_price", "暂无数据"),  # 新字段previous_price
+                    "change": oil_raw_data.get("p92", {}).get("price_change", "暂无数据"),  # 新字段price_change
+                    "change_percent": ""  # 新API无该字段，后续计算
                 },
                 "95号汽油": {
-                    "current_price": oil_raw_data.get("95h", {}).get("price", "暂无数据"),
-                    "last_price": oil_raw_data.get("95h", {}).get("change_before_price", "暂无数据"),
-                    "change": oil_raw_data.get("95h", {}).get("change", "暂无数据"),
-                    "change_percent": oil_raw_data.get("95h", {}).get("change_percent", "暂无数据")
+                    "current_price": oil_raw_data.get("p95", {}).get("price", "暂无数据"),
+                    "last_price": oil_raw_data.get("p95", {}).get("previous_price", "暂无数据"),
+                    "change": oil_raw_data.get("p95", {}).get("price_change", "暂无数据"),
+                    "change_percent": ""
                 },
                 "98号汽油": {
-                    "current_price": oil_raw_data.get("98h", {}).get("price", "暂无数据"),
-                    "last_price": oil_raw_data.get("98h", {}).get("change_before_price", "暂无数据"),
-                    "change": oil_raw_data.get("98h", {}).get("change", "暂无数据"),
-                    "change_percent": oil_raw_data.get("98h", {}).get("change_percent", "暂无数据")
+                    "current_price": oil_raw_data.get("p98", {}).get("price", "暂无数据"),
+                    "last_price": oil_raw_data.get("p98", {}).get("previous_price", "暂无数据"),
+                    "change": oil_raw_data.get("p98", {}).get("price_change", "暂无数据"),
+                    "change_percent": ""
                 }
             }
         }
 
-        # 日期格式化
-        raw_last_date = oil_raw_data.get("before_change_time", "")
+        # 计算各标号油价涨跌率
+        for oil_type in ["92号汽油", "95号汽油", "98号汽油"]:
+            change = oil_json["oil_detail"][oil_type]["change"]
+            last_price = oil_json["oil_detail"][oil_type]["last_price"]
+            oil_json["oil_detail"][oil_type]["change_percent"] = calculate_change_percent(change, last_price)
+            
+            # 为涨跌金额补充符号（正数加+，负数保留-，空值不变）
+            if change != "暂无数据" and change.strip() != "":
+                try:
+                    change_float = float(change)
+                    if change_float > 0:
+                        oil_json["oil_detail"][oil_type]["change"] = f"+{change}"
+                except ValueError:
+                    pass  # 非数字则保持原样
+
+        # 日期格式化（新字段last_adjusted/next_adjustment替换原字段）
+        raw_last_date = oil_raw_data.get("last_adjusted", "")
         if raw_last_date and len(raw_last_date) == 8 and raw_last_date.isdigit():
             oil_json["last_change_date"] = f"{raw_last_date[:4]}-{raw_last_date[4:6]}-{raw_last_date[6:8]}"
-        raw_next_date = oil_raw_data.get("next_change_time", "")
+        raw_next_date = oil_raw_data.get("next_adjustment", "")
         if raw_next_date and len(raw_next_date) == 8 and raw_next_date.isdigit():
             oil_json["next_change_date"] = f"{raw_next_date[:4]}-{raw_next_date[4:6]}-{raw_next_date[6:8]}"
 
-        # 生成HTML表格
+        # 生成HTML表格（格式不变，仅适配新数据）
         table_html = f"""
 <h3>内蒙古油价更新信息</h3>
 <p>最近调整日期：{oil_json['last_change_date'] or '暂无数据'}</p>
@@ -82,9 +129,9 @@ def get_neimenggu_oil_price():
     <td>{oil_json['oil_detail']['92号汽油']['last_price']}</td>
     <td>{
         f'<span style="color: green;">{oil_json["oil_detail"]["92号汽油"]["change"]}</span>' 
-        if oil_json["oil_detail"]["92号汽油"]["change"].startswith("-") 
+        if str(oil_json["oil_detail"]["92号汽油"]["change"]).startswith("-") 
         else f'<span style="color: red;">{oil_json["oil_detail"]["92号汽油"]["change"]}</span>' 
-        if oil_json["oil_detail"]["92号汽油"]["change"].startswith("+") 
+        if str(oil_json["oil_detail"]["92号汽油"]["change"]).startswith("+") 
         else oil_json["oil_detail"]["92号汽油"]["change"]
     }</td>
     <td>{oil_json['oil_detail']['92号汽油']['change_percent']}</td>
@@ -95,9 +142,9 @@ def get_neimenggu_oil_price():
     <td>{oil_json['oil_detail']['95号汽油']['last_price']}</td>
     <td>{
         f'<span style="color: green;">{oil_json["oil_detail"]["95号汽油"]["change"]}</span>' 
-        if oil_json["oil_detail"]["95号汽油"]["change"].startswith("-") 
+        if str(oil_json["oil_detail"]["95号汽油"]["change"]).startswith("-") 
         else f'<span style="color: red;">{oil_json["oil_detail"]["95号汽油"]["change"]}</span>' 
-        if oil_json["oil_detail"]["95号汽油"]["change"].startswith("+") 
+        if str(oil_json["oil_detail"]["95号汽油"]["change"]).startswith("+") 
         else oil_json["oil_detail"]["95号汽油"]["change"]
     }</td>
     <td>{oil_json['oil_detail']['95号汽油']['change_percent']}</td>
@@ -108,9 +155,9 @@ def get_neimenggu_oil_price():
     <td>{oil_json['oil_detail']['98号汽油']['last_price']}</td>
     <td>{
         f'<span style="color: green;">{oil_json["oil_detail"]["98号汽油"]["change"]}</span>' 
-        if oil_json["oil_detail"]["98号汽油"]["change"].startswith("-") 
+        if str(oil_json["oil_detail"]["98号汽油"]["change"]).startswith("-") 
         else f'<span style="color: red;">{oil_json["oil_detail"]["98号汽油"]["change"]}</span>' 
-        if oil_json["oil_detail"]["98号汽油"]["change"].startswith("+") 
+        if str(oil_json["oil_detail"]["98号汽油"]["change"]).startswith("+") 
         else oil_json["oil_detail"]["98号汽油"]["change"]
     }</td>
     <td>{oil_json['oil_detail']['98号汽油']['change_percent']}</td>
@@ -126,7 +173,7 @@ def get_neimenggu_oil_price():
         return {}, error_info, "", "", False
 
 def push_to_wechat_via_pushplus(title, content):
-    """推送函数（逻辑不变，配置项从环境变量读取）"""
+    """推送函数（逻辑完全不变）"""
     if not PUSHPLUS_TOKEN:
         print("【错误】PushPlus Token为空（必填项）")
         return False
@@ -174,7 +221,7 @@ def push_to_wechat_via_pushplus(title, content):
         return False
 
 def main():
-    """主逻辑（适配GitHub Actions时区）"""
+    """主逻辑（完全不变）"""
     # 设置时区为中国上海（解决GitHub Actions默认UTC时区导致的日期错误）
     os.environ["TZ"] = "Asia/Shanghai"
     current_date = datetime.now().strftime("%Y-%m-%d")

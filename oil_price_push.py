@@ -305,7 +305,7 @@ def main():
     if current_date != last_change_date:
         print(f"【结束】今日({current_date})非调整日（最近调整日：{last_change_date}），无需推送")
         return
-    
+        
     print("【推送】今日为调整日，执行推送...")
     # PushPlus推送
     push_plus_title = f"【内蒙古油价调整通知】{current_date}"
